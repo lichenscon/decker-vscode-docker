@@ -19,12 +19,9 @@ RUN apt-get update && apt-get install -y curl ca-certificates gnupg \
 # Globales vsce für Extension-Builds installieren
 RUN npm install -g @vscode/vsce
 
-# Decker installieren (mit Robuste Fallback-URL falls GitHub API geprosselt/leer ist)
-RUN DECKER_URL=$(curl -s https://api.github.com/repos/decker-edu/decker/releases/latest | grep -i "browser_download_url.*linux" | cut -d '"' -f 4) ; \
-    if [ -z "$DECKER_URL" ]; then \
-        DECKER_URL="https://github.com/decker-edu/decker/releases/latest/download/decker-Linux-x86_64.tar.gz" ; \
-    fi ; \
-    wget -O /tmp/decker.tar.gz "$DECKER_URL" || wget -O /tmp/decker.tar.gz "https://github.com/decker-edu/decker/releases/download/v0.53.0/decker-Linux-x86_64.tar.gz" \
+# Decker installieren: Nimmt das neueste Asset aus allen Releases (inkl. Pre-Releases)
+RUN DECKER_URL=$(curl -s https://api.github.com/repos/decker-edu/decker/releases | grep "browser_download_url" | grep -i "linux" | head -n 1 | cut -d '"' -f 4) \
+    && wget -O /tmp/decker.tar.gz "$DECKER_URL" \
     && tar -xzf /tmp/decker.tar.gz -C /usr/local/bin \
     && chmod +x /usr/local/bin/decker \
     && rm /tmp/decker.tar.gz
