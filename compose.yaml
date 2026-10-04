@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  decker-vscode:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: decker-vscode
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - PASSWORD=deckerpass    # Passwort für VS Code Web UI und SSH (Benutzer: abc)
+      - SUDO_PASSWORD=deckerpass
+      - EXTRA_APT_PACKAGES=nano ffmpeg # Hier gewünschte APT-Pakete angeben
+    volumes:
+      - ./config:/config
+      - ./workspace:/config/workspace
+    ports:
+      - "8443:8443"  # VS Code Web UI
+      - "2222:22"    # SSH-Zugriff (Port 2222 extern)
+    restart: unless-stopped
+
+  decker-quizzer:
+    image: ghcr.io/decker-edu/quizzer:latest
+    container_name: decker-quizzer
+    ports:
+      - "8000:8000"  # Quiz-Server UI / API
+    volumes:
+      - ./workspace:/data
+    restart: unless-stopped
