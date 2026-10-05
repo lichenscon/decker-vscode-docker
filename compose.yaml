@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   decker-vscode:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/lichenscon/decker-vscode-docker:main
     container_name: decker-vscode
     environment:
       - PUID=1000
