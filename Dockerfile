@@ -14,10 +14,14 @@ RUN apt-get update && apt-get install -y curl ca-certificates gnupg \
     git \
     wget \
     unzip \
+    file \
     && rm -rf /var/lib/apt/lists/*
 
 # Globales vsce für Extension-Builds installieren
 RUN npm install -g @vscode/vsce
+
+# PATH um den Pfad von code-server erweitern
+ENV PATH="/app/code-server/bin:/usr/lib/code-server/bin:${PATH}"
 
 # Decker installieren: Neuestes Linux-Asset (zip oder tar.gz) dynamisch ermitteln & entpacken
 RUN DECKER_URL=$(curl -s https://api.github.com/repos/decker-edu/decker/releases | grep "browser_download_url" | grep -i "linux" | head -n 1 | cut -d '"' -f 4) \
@@ -34,22 +38,27 @@ RUN DECKER_URL=$(curl -s https://api.github.com/repos/decker-edu/decker/releases
     && chmod +x /usr/local/bin/decker \
     && rm -rf /tmp/decker_asset /tmp/decker_out
 
-# VSCode Extension decker-edu/vscode-decker-init aus Quellcode bauen und installieren
+# VSCode Extension decker-edu/vscode-decker-init aus Quellcode bauen und VSIX ablegen
 RUN git clone https://github.com/decker-edu/vscode-decker-init.git /tmp/vscode-decker-init \
     && cd /tmp/vscode-decker-init \
     && npm install \
     && vsce package --no-dependencies || vsce package \
-    && code-server --install-extension *.vsix \
+    && mkdir -p /var/default-extensions \
+    && mv *.vsix /var/default-extensions/decker-init.vsix \
     && rm -rf /tmp/vscode-decker-init
 
-# CustomInit-Skript für dynamische Paketinstallation per ENV (EXTRA_APT_PACKAGES)
+# CustomInit-Skript für dynamische Paketinstallation per ENV (EXTRA_APT_PACKAGES) und VSIX Installation beim ersten Start
 RUN mkdir -p /custom-cont-init.d/ && \
     echo '#!/bin/bash\n\
 if [ -n "$EXTRA_APT_PACKAGES" ]; then\n\
     echo "Installing extra packages: $EXTRA_APT_PACKAGES"\n\
     apt-get update && apt-get install -y $EXTRA_APT_PACKAGES && rm -rf /var/lib/apt/lists/*\n\
-fi' > /custom-cont-init.d/10-install-extra-pkgs.sh && \
-    chmod +x /custom-cont-init.d/10-install-extra-pkgs.sh
+fi\n\
+if [ -f /var/default-extensions/decker-init.vsix ]; then\n\
+    echo "Installing decker-init extension..."\n\
+    /app/code-server/bin/code-server --install-extension /var/default-extensions/decker-init.vsix || true\n\
+fi' > /custom-cont-init.d/10-init-setup.sh && \
+    chmod +x /custom-cont-init.d/10-init-setup.sh
 
 # SSH Konfiguration anpassen
 RUN mkdir -p /var/run/sshd \
