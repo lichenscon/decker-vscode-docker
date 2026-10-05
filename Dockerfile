@@ -19,12 +19,20 @@ RUN apt-get update && apt-get install -y curl ca-certificates gnupg \
 # Globales vsce für Extension-Builds installieren
 RUN npm install -g @vscode/vsce
 
-# Decker installieren: Nimmt das neueste Asset aus allen Releases (inkl. Pre-Releases)
+# Decker installieren: Neuestes Linux-Asset (zip oder tar.gz) dynamisch ermitteln & entpacken
 RUN DECKER_URL=$(curl -s https://api.github.com/repos/decker-edu/decker/releases | grep "browser_download_url" | grep -i "linux" | head -n 1 | cut -d '"' -f 4) \
-    && wget -O /tmp/decker.tar.gz "$DECKER_URL" \
-    && tar -xzf /tmp/decker.tar.gz -C /usr/local/bin \
+    && echo "Downloading Decker from: $DECKER_URL" \
+    && wget -O /tmp/decker_asset "$DECKER_URL" \
+    && if file /tmp/decker_asset | grep -q 'Zip archive'; then \
+           unzip /tmp/decker_asset -d /tmp/decker_out && \
+           find /tmp/decker_out -type f -name "decker*" -exec mv {} /usr/local/bin/decker \; ; \
+       elif file /tmp/decker_asset | grep -q 'gzip compressed'; then \
+           tar -xzf /tmp/decker_asset -C /usr/local/bin ; \
+       else \
+           mv /tmp/decker_asset /usr/local/bin/decker ; \
+       fi \
     && chmod +x /usr/local/bin/decker \
-    && rm /tmp/decker.tar.gz
+    && rm -rf /tmp/decker_asset /tmp/decker_out
 
 # VSCode Extension decker-edu/vscode-decker-init aus Quellcode bauen und installieren
 RUN git clone https://github.com/decker-edu/vscode-decker-init.git /tmp/vscode-decker-init \
